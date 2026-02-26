@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Likʼwala Alphabet Soundboard</title>
+    
+    <style>
+        :root {
+            --primary-color: #00a8ff; 
+            --highlight-color: #2ecc71; 
+            --bg-color: #f9f9f9;      
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: var(--bg-color);
+            padding: 20px;
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            width: 100%;
+            padding: 10px 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .alphabet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 15px;
+            max-width: 900px;
+            width: 100%;
+            margin-top: 20px;
+            flex-grow: 1;
+        }
+
+        .letter-card {
+            background: #fff;
+            border: 2px solid #eee;
+            border-radius: 12px;
+            height: 100px; 
+            position: relative; 
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: flex-end; 
+            justify-content: flex-end; 
+            padding: 8px;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* UPDATED: Font size increased by 50% (from 1.4rem to 2.1rem) */
+        .card-label {
+            position: absolute;
+            top: 2px;
+            left: 5px;
+            font-size: 2.1rem; 
+            font-weight: bold;
+            color: #333;
+            z-index: 2;
+            line-height: 1; /* Keeps the large letter from adding extra space around itself */
+        }
+
+        .card-image {
+            max-width: 70%;
+            max-height: 70%;
+            object-fit: contain;
+            pointer-events: none;
+        }
+
+        .letter-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-2px);
+        }
+
+        .letter-card.playing {
+            border-color: var(--highlight-color);
+            background-color: #e8f8f0;
+            box-shadow: 0 0 12px rgba(46, 204, 113, 0.4);
+            transform: scale(1.03);
+        }
+
+        footer {
+            margin-top: 50px;
+            padding: 20px;
+            width: 100%;
+            border-top: 1px solid #ddd;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        footer a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Likʼwala Alphabet</h1>
+        <p>Click a tile to hear the pronunciation</p>
+    </div>
+
+    <div class="alphabet-grid" id="grid"></div>
+
+    <footer>
+        <p style="text-align: center;">Vibe coded by <a href="https://richmccue.com">Rich McCue</a> using Gemini 3.0 - <a href="https://gemini.google.com/share/5e3d70af1c90">Vibe Code prompt</a> - <a href="https://github.com/richmccue/brasil-letters/">Github Reposity for this project</a></p>
+        <p style="text-align: center;">Inspired by the <a href="https://dom-aya.github.io/ayajuthem-soundboard/">ʔayʔaǰuθəm soundboard</a> - <a href="https://github.com/dom-aya/ayajuthem-lingo">GitHub Repository for the ʔayʔaǰuθəm project</a></p>
+    </footer>
+
+    <script>
+        const likwalaMap = {
+            "a": "a", "b": "b", "c": "c", "c̓": "c_glottal", "d": "d", "dᶻ": "dz", "e": "e", "ē": "e_long", 
+            "ə": "schwa", "g": "g", "gʷ": "g_w", "ǧ": "g_wedge", "ǧʷ": "g_wedge_w", "h": "h", 
+            "i": "i", "k": "k", "k̓": "k_glottal", "kʷ": "k_w", "k̓ʷ": "k_w_glottal", "l": "l", 
+            "l̓": "l_glottal", "ɫ": "l_tilde", "λ": "lambda", "ƛ": "lambda_barred", 
+            "ƛ̓": "lambda_barred_glottal", "m": "m", "m̓": "m_glottal", "n": "n", "n̓": "n_glottal", 
+            "o": "o", "p": "p", "p̓": "p_glottal", "q": "q", "qʷ": "q_w", "q̓": "q_glottal", 
+            "q̓ʷ": "q_w_glottal", "s": "s", "t": "t", "t̓": "t_glottal", "u": "u", "w": "w", 
+            "w̓": "w_glottal", "x": "x", "xʷ": "x_w", "x̌": "x_wedge", "x̌ʷ": "x_wedge_w", 
+            "y": "y", "y̓": "y_glottal", "ʔ": "glottal_stop"
+        };
+
+        const grid = document.getElementById('grid');
+
+        Object.keys(likwalaMap).forEach(letter => {
+            const fileName = likwalaMap[letter];
+            const card = document.createElement('div');
+            card.className = 'letter-card';
+            
+            const label = document.createElement('span');
+            label.className = 'card-label';
+            label.innerText = letter;
+            
+            const img = document.createElement('img');
+            img.className = 'card-image';
+            img.src = `images/${fileName}.png`; 
+
+            img.onerror = () => { img.style.display = 'none'; };
+
+            card.appendChild(label);
+            card.appendChild(img);
+            
+            card.onclick = () => {
+                playAudio(fileName, card);
+            };
+            
+            grid.appendChild(card);
+        });
+
+        function playAudio(fileName, element) {
+            const audio = new Audio(`assets/${fileName}.mp3`);
+            audio.onplay = () => element.classList.add('playing');
+            audio.onended = () => element.classList.remove('playing');
+            audio.play().catch(err => {
+                console.error(`Audio missing: assets/${fileName}.mp3`);
+                element.classList.remove('playing');
+            });
+        }
+    </script>
+</body>
+</html>
