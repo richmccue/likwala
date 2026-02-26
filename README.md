@@ -1,4 +1,5 @@
-# lik'wala
-Lik'wala Language Tools
+# lik'wala Language Tools
 
-Web address: <a href="https://richmccue.github.io/likwala/">richmccue.github.io/likwala</a>
+Lovingly vibe coded by Rich McCue using Gemini 3.0: [gemini.google.com/share/5e3d70af1c90](https://gemini.google.com/share/5e3d70af1c90)
+
+Public web address: [richmccue.github.io/brasil-letters](https://richmccue.github.io/likwala)
