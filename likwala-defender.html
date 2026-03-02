@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lik̓wala Letter Shooter</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+  :root {
+    --neon-cyan: #00f5ff;
+    --neon-green: #39ff14;
+    --neon-orange: #ff6b00;
+    --neon-pink: #ff0080;
+    --dark: #020812;
+    --mid: #071428;
+    --panel: #0a1e3a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--dark);
+    color: var(--neon-cyan);
+    font-family: 'Share Tech Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+  }
+
+  /* Stars background */
+  #stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 20px;
+    background: rgba(0,0,0,0.5);
+    border-bottom: 1px solid rgba(0,245,255,0.2);
+    z-index: 10;
+    position: relative;
+  }
+
+  #hud .title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1.1rem;
+    color: var(--neon-cyan);
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px var(--neon-cyan);
+  }
+
+  .hud-stat { font-size: 0.85rem; color: rgba(0,245,255,0.7); }
+  .hud-stat span { color: var(--neon-green); font-size: 1rem; }
+
+  #game-container {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Keyboard area */
+  #keyboard-area {
+    z-index: 10;
+    position: relative;
+    background: rgba(0,0,0,0.7);
+    border-top: 1px solid rgba(0,245,255,0.15);
+    padding: 8px 10px;
+    max-height: 180px;
+    overflow-y: auto;
+  }
+
+  .kb-row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .key-btn {
+    background: var(--panel);
+    border: 1px solid rgba(0,245,255,0.25);
+    color: var(--neon-cyan);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+    padding: 5px 8px;
+    min-width: 36px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.1s;
+    line-height: 1.2;
+    position: relative;
+  }
+
+  .key-btn:hover {
+    background: rgba(0,245,255,0.15);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 8px rgba(0,245,255,0.4);
+  }
+
+  .key-btn.active {
+    background: var(--neon-cyan);
+    color: var(--dark);
+    box-shadow: 0 0 16px var(--neon-cyan);
+    transform: scale(0.92);
+  }
+
+  .key-btn.correct {
+    background: var(--neon-green);
+    color: var(--dark);
+    box-shadow: 0 0 16px var(--neon-green);
+  }
+
+  /* Pronunciation toast */
+  #pronunciation-display {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.85);
+    border: 2px solid var(--neon-green);
+    border-radius: 12px;
+    padding: 16px 32px;
+    font-size: 1.8rem;
+    color: var(--neon-green);
+    text-shadow: 0 0 20px var(--neon-green);
+    font-family: 'Orbitron', sans-serif;
+    pointer-events: none;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity 0.15s;
+    text-align: center;
+    min-width: 200px;
+  }
+
+  #pronunciation-display.show {
+    opacity: 1;
+  }
+
+  /* Overlays */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(2,8,18,0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    font-family: 'Orbitron', sans-serif;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .overlay h1 {
+    font-size: 3rem;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 30px var(--neon-cyan);
+    letter-spacing: 4px;
+  }
+
+  .overlay p { color: rgba(0,245,255,0.7); font-size: 0.9rem; max-width: 400px; line-height: 1.6; }
+
+  .overlay .big-score { font-size: 2rem; color: var(--neon-green); }
+
+  .btn-start {
+    margin-top: 16px;
+    background: transparent;
+    border: 2px solid var(--neon-cyan);
+    color: var(--neon-cyan);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    padding: 12px 40px;
+    cursor: pointer;
+    letter-spacing: 2px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    text-shadow: 0 0 8px var(--neon-cyan);
+  }
+
+  .btn-start:hover {
+    background: rgba(0,245,255,0.15);
+    box-shadow: 0 0 20px rgba(0,245,255,0.5);
+  }
+
+  .hidden { display: none !important; }
+
+  #lives-display { display: flex; gap: 6px; align-items: center; }
+  .life-icon { color: var(--neon-pink); font-size: 1rem; text-shadow: 0 0 6px var(--neon-pink); }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div id="hud">
+  <div class="title">LIK̓WALA DEFENDER</div>
+  <div class="hud-stat">SCORE <span id="score">0</span></div>
+  <div class="hud-stat">LEVEL <span id="level">1</span></div>
+  <div id="lives-display">
+    <span id="life1" class="life-icon">♥</span>
+    <span id="life2" class="life-icon">♥</span>
+    <span id="life3" class="life-icon">♥</span>
+  </div>
+</div>
+
+<div id="game-container">
+  <canvas id="gameCanvas"></canvas>
+</div>
+
+<div id="keyboard-area">
+  <div class="kb-row" id="kb-row1"></div>
+  <div class="kb-row" id="kb-row2"></div>
+  <div class="kb-row" id="kb-row3"></div>
+</div>
+
+<div id="pronunciation-display"></div>
+
+<!-- Start Screen -->
+<div class="overlay" id="start-screen">
+  <h1>LIK̓WALA<br>DEFENDER</h1>
+  <p>Letters fall from the sky. Press the matching Lik̓wala letter on the keyboard below to shoot them down. Each hit plays the correct pronunciation!</p>
+  <p id="loading-msg" style="color:rgba(0,245,255,0.5);font-size:0.8rem;">Loading images...</p>
+  <button class="btn-start" id="startBtn">▶ START GAME</button>
+</div>
+
+<!-- Game Over Screen -->
+<div class="overlay hidden" id="gameover-screen">
+  <h1>GAME OVER</h1>
+  <div class="big-score" id="final-score">0</div>
+  <p>You defended the language barrier!</p>
+  <button class="btn-start" id="restartBtn">↺ PLAY AGAIN</button>
+</div>
+
+<script>
+// ── LIKWALA DATA ──────────────────────────────────────────────────────────────
+const BASE = 'https://richmccue.github.io/likwala/';
+
+const likwalaMap = {
+  "a":"a","b":"b","c":"c","c̓":"c_glottal","d":"d","dᶻ":"dz","e":"e","ē":"e_long",
+  "ə":"schwa","g":"g","gʷ":"g_w","ǧ":"g_wedge","ǧʷ":"g_wedge_w","h":"h",
+  "i":"i","k":"k","k̓":"k_glottal","kʷ":"k_w","k̓ʷ":"k_w_glottal","l":"l",
+  "l̓":"l_glottal","ɫ":"l_tilde","λ":"lambda","ƛ":"lambda_barred",
+  "ƛ̓":"lambda_barred_glottal","m":"m","m̓":"m_glottal","n":"n","n̓":"n_glottal",
+  "o":"o","p":"p","p̓":"p_glottal","q":"q","qʷ":"q_w","q̓":"q_glottal",
+  "q̓ʷ":"q_w_glottal","s":"s","t":"t","t̓":"t_glottal","u":"u","w":"w",
+  "w̓":"w_glottal","x":"x","xʷ":"x_w","x̌":"x_wedge","x̌ʷ":"x_wedge_w",
+  "y":"y","y̓":"y_glottal","ʔ":"glottal_stop"
+};
+
+// Keyboard rows for display
+const kbRows = [
+  ["a","b","c","c̓","d","dᶻ","e","ē","ə","g","gʷ","ǧ","ǧʷ","h"],
+  ["i","k","k̓","kʷ","k̓ʷ","l","l̓","ɫ","λ","ƛ","ƛ̓","m","m̓","n","n̓"],
+  ["o","p","p̓","q","qʷ","q̓","q̓ʷ","s","t","t̓","u","w","w̓","x","xʷ","x̌","x̌ʷ","y","y̓","ʔ"]
+];
+
+const allLetters = Object.keys(likwalaMap);
+
+// ── STARS BACKGROUND ────────────────────────────────────────────────────────
+const starsCanvas = document.getElementById('stars');
+const sCtx = starsCanvas.getContext('2d');
+let starsList = [];
+function initStars() {
+  starsCanvas.width = window.innerWidth;
+  starsCanvas.height = window.innerHeight;
+  starsList = [];
+  for (let i = 0; i < 150; i++) {
+    starsList.push({
+      x: Math.random() * starsCanvas.width,
+      y: Math.random() * starsCanvas.height,
+      r: Math.random() * 1.5,
+      a: Math.random()
+    });
+  }
+}
+function drawStars() {
+  sCtx.clearRect(0, 0, starsCanvas.width, starsCanvas.height);
+  starsList.forEach(s => {
+    sCtx.beginPath();
+    sCtx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    sCtx.fillStyle = `rgba(0,245,255,${s.a * 0.6})`;
+    sCtx.fill();
+    s.a += (Math.random() - 0.5) * 0.02;
+    s.a = Math.max(0.1, Math.min(1, s.a));
+  });
+}
+initStars();
+
+// ── GAME CANVAS ──────────────────────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const container = document.getElementById('game-container');
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+}
+window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
+resizeCanvas();
+
+// ── GAME STATE ───────────────────────────────────────────────────────────────
+let score = 0;
+let lives = 3;
+let level = 1;
+let gameRunning = false;
+let fallingLetters = [];
+let lasers = [];
+let explosions = [];
+let pronunciationTimer = null;
+
+// Preloaded images
+const imageCache = {};
+// Audio cache
+const audioCache = {};
+
+function getImageUrl(fileId) {
+  return `https://richmccue.github.io/likwala/images/${fileId}.png`;
+}
+
+function getAudioUrl(fileId) {
+  return `${BASE}audio/${fileId}.mp3`;
+}
+
+// Only letters whose images load successfully will be used in the game
+let availableLetters = [];
+let imagesChecked = 0;
+
+function onImagesReady() {
+  const order = allLetters;
+  availableLetters.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const loadingEl = document.getElementById('loading-msg');
+  if (loadingEl) loadingEl.textContent = availableLetters.length + ' letters ready — click Start!';
+  document.getElementById('startBtn').disabled = false;
+  // Dim keyboard keys that have no image
+  allLetters.forEach(letter => {
+    if (!availableLetters.includes(letter)) {
+      const btn = document.querySelector('.key-btn[data-letter="' + CSS.escape(letter) + '"]');
+      if (btn) { btn.style.opacity = '0.2'; btn.style.pointerEvents = 'none'; }
+    }
+  });
+}
+
+function preloadImage(letter) {
+  const id = likwalaMap[letter];
+  const img = new Image();
+  img.onload = () => {
+    imageCache[id] = img;
+    availableLetters.push(letter);
+    imagesChecked++;
+    if (imagesChecked === allLetters.length) onImagesReady();
+  };
+  img.onerror = () => {
+    imagesChecked++;
+    if (imagesChecked === allLetters.length) onImagesReady();
+  };
+  img.src = getImageUrl(id);
+}
+
+// Disable start until images are checked
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('startBtn').disabled = true;
+});
+allLetters.forEach(preloadImage);
+
+// ── KEYBOARD UI ──────────────────────────────────────────────────────────────
+function buildKeyboard() {
+  kbRows.forEach((row, i) => {
+    const container = document.getElementById(`kb-row${i+1}`);
+    row.forEach(letter => {
+      const btn = document.createElement('button');
+      btn.className = 'key-btn';
+      btn.textContent = letter;
+      btn.dataset.letter = letter;
+      btn.addEventListener('click', () => handleLetterPress(letter));
+      container.appendChild(btn);
+    });
+  });
+}
+buildKeyboard();
+
+// Physical keyboard map - map typed chars to Likwala letters
+// Simple letters map directly; special letters need click
+document.addEventListener('keydown', (e) => {
+  if (!gameRunning) return;
+  const ch = e.key;
+  // Check direct match
+  if (likwalaMap[ch] !== undefined) {
+    handleLetterPress(ch);
+  }
+});
+
+function flashKey(letter, cls) {
+  const btn = document.querySelector(`.key-btn[data-letter="${CSS.escape(letter)}"]`);
+  if (!btn) return;
+  btn.classList.add(cls);
+  setTimeout(() => btn.classList.remove(cls), 300);
+}
+
+// ── FALLING LETTER CLASS ─────────────────────────────────────────────────────
+class FallingLetter {
+  constructor() {
+    this.letter = availableLetters[Math.floor(Math.random() * availableLetters.length)];
+    this.fileId = likwalaMap[this.letter];
+    this.x = 60 + Math.random() * (canvas.width - 120);
+    this.y = -100;
+    this.size = 80;
+    this.speed = 0.25 + level * 0.09 + Math.random() * 0.2;
+    this.alive = true;
+    this.alpha = 1;
+    this.dying = false;
+    this.glowPhase = Math.random() * Math.PI * 2;
+  }
+
+  get img() { return imageCache[this.fileId]; }
+
+  update() {
+    if (this.dying) {
+      this.alpha -= 0.12;
+      if (this.alpha <= 0) { this.alpha = 0; this.alive = false; }
+      return;
+    }
+    this.y += this.speed;
+    this.glowPhase += 0.05;
+    if (this.y > canvas.height + 100) {
+      this.alive = false;
+      loseLife();
+    }
+  }
+
+  startDying() {
+    this.dying = true;
+  }
+
+  draw() {
+    if (this.alpha <= 0) return;
+    const glow = 0.5 + 0.5 * Math.sin(this.glowPhase);
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+
+    const img = this.img;
+    if (img && img.complete && img.naturalWidth > 0) {
+      ctx.shadowColor = 'rgba(0,245,255,0.6)';
+      ctx.shadowBlur = 12 + 8 * glow;
+      ctx.drawImage(img, this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+      ctx.shadowBlur = 0;
+    } else {
+      // Fallback circle with letter
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size/2, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(0,15,35,0.9)';
+      ctx.fill();
+      ctx.strokeStyle = `rgba(0,245,255,${0.4 + 0.4*glow})`;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = '#00f5ff';
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(0,245,255,0.4)';
+      ctx.font = 'bold 28px Share Tech Mono';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('?', this.x, this.y);
+    }
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+}
+
+// ── LASER CLASS ─────────────────────────────────────────────────────────────
+class Laser {
+  constructor(targetX, targetY) {
+    this.x = canvas.width / 2;
+    this.y = canvas.height;
+    this.tx = targetX;
+    this.ty = targetY;
+    this.progress = 0;
+    this.speed = 0.08;
+    this.done = false;
+  }
+  update() {
+    this.progress += this.speed;
+    if (this.progress >= 1) this.done = true;
+  }
+  draw() {
+    const cx = this.x + (this.tx - this.x) * this.progress;
+    const cy = this.y + (this.ty - this.y) * this.progress;
+    const grad = ctx.createLinearGradient(this.x, this.y, cx, cy);
+    grad.addColorStop(0, 'rgba(57,255,20,0)');
+    grad.addColorStop(0.7, 'rgba(57,255,20,0.8)');
+    grad.addColorStop(1, 'rgba(57,255,20,1)');
+    ctx.beginPath();
+    ctx.moveTo(this.x, this.y);
+    ctx.lineTo(cx, cy);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 3;
+    ctx.shadowColor = '#39ff14';
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    // Head glow
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, Math.PI*2);
+    ctx.fillStyle = '#39ff14';
+    ctx.shadowColor = '#39ff14';
+    ctx.shadowBlur = 20;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+// ── EXPLOSION ────────────────────────────────────────────────────────────────
+class Explosion {
+  constructor(x, y) {
+    this.x = x; this.y = y;
+    this.particles = [];
+    for (let i = 0; i < 20; i++) {
+      const angle = (Math.PI * 2 * i) / 20;
+      const speed = 2 + Math.random() * 4;
+      this.particles.push({
+        x, y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1,
+        size: 2 + Math.random() * 4,
+        color: Math.random() > 0.5 ? '#39ff14' : '#00f5ff'
+      });
+    }
+    this.alive = true;
+  }
+  update() {
+    this.particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.15;
+      p.life -= 0.04;
+      p.size *= 0.97;
+    });
+    if (this.particles[0].life <= 0) this.alive = false;
+  }
+  draw() {
+    this.particles.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+      ctx.fillStyle = p.color + Math.floor(p.life * 255).toString(16).padStart(2,'0');
+      ctx.fill();
+    });
+  }
+}
+
+// ── PRONUNCIATION ─────────────────────────────────────────────────────────────
+const pronDisplay = document.getElementById('pronunciation-display');
+function showPronunciation(letter, fileId) {
+  // Play audio
+  let audio = audioCache[fileId];
+  if (!audio) {
+    audio = new Audio(getAudioUrl(fileId));
+    audioCache[fileId] = audio;
+  }
+  audio.currentTime = 0;
+  audio.play().catch(() => {});
+
+  // Show text
+  pronDisplay.textContent = letter + ' = ' + fileId.replace(/_/g, ' ');
+  pronDisplay.classList.add('show');
+  if (pronunciationTimer) clearTimeout(pronunciationTimer);
+  pronunciationTimer = setTimeout(() => pronDisplay.classList.remove('show'), 1200);
+}
+
+// ── GAME LOGIC ───────────────────────────────────────────────────────────────
+let spawnTimer = 0;
+let spawnInterval = 200; // frames between spawns
+
+function handleLetterPress(letter) {
+  if (!gameRunning) return;
+
+  // Find matching falling letter (closest to bottom)
+  let target = null;
+  let maxY = -Infinity;
+  fallingLetters.forEach(fl => {
+    if (fl.alive && !fl.dying && fl.letter === letter && fl.y > maxY) {
+      maxY = fl.y;
+      target = fl;
+    }
+  });
+
+  if (target) {
+    // Hit! — start fade-out, explosion handles the visual bang
+    target.startDying();
+    score += 10 + level * 2;
+    document.getElementById('score').textContent = score;
+    lasers.push(new Laser(target.x, target.y));
+    explosions.push(new Explosion(target.x, target.y));
+    showPronunciation(letter, target.fileId);
+    flashKey(letter, 'correct');
+  } else {
+    flashKey(letter, 'active');
+  }
+}
+
+function loseLife() {
+  lives--;
+  const ids = ['life3','life2','life1'];
+  document.getElementById(ids[lives]).style.opacity = '0.1';
+  if (lives <= 0) endGame();
+}
+
+function updateLevel() {
+  level = 1 + Math.floor(score / 200);
+  document.getElementById('level').textContent = level;
+  spawnInterval = Math.max(60, 200 - level * 15);
+}
+
+function spawnLetter() {
+  if (fallingLetters.filter(f => f.alive).length < 5 + level) {
+    fallingLetters.push(new FallingLetter());
+  }
+}
+
+// ── CANNON SHIP ──────────────────────────────────────────────────────────────
+function drawShip() {
+  const cx = canvas.width / 2;
+  const cy = canvas.height - 16;
+  ctx.save();
+  // Body
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 18);
+  ctx.lineTo(cx - 16, cy + 10);
+  ctx.lineTo(cx + 16, cy + 10);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(0,245,255,0.15)';
+  ctx.strokeStyle = '#00f5ff';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#00f5ff';
+  ctx.shadowBlur = 10;
+  ctx.fill();
+  ctx.stroke();
+  // Cannon nub
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - 20);
+  ctx.lineTo(cx, cy - 30);
+  ctx.strokeStyle = '#39ff14';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = '#39ff14';
+  ctx.shadowBlur = 8;
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+// ── MAIN LOOP ────────────────────────────────────────────────────────────────
+let animId;
+function gameLoop() {
+  if (!gameRunning) return;
+  animId = requestAnimationFrame(gameLoop);
+
+  // Draw stars
+  drawStars();
+
+  // Clear game canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Grid lines
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,245,255,0.03)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < canvas.width; x += 60) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+  }
+  for (let y = 0; y < canvas.height; y += 60) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+  }
+  ctx.restore();
+
+  // Danger zone
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,0,128,0.2)';
+  ctx.setLineDash([10,10]);
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height - 50);
+  ctx.lineTo(canvas.width, canvas.height - 50);
+  ctx.stroke();
+  ctx.restore();
+
+  drawShip();
+
+  // Spawn
+  spawnTimer++;
+  if (spawnTimer >= spawnInterval) {
+    spawnTimer = 0;
+    spawnLetter();
+  }
+
+  // Update & draw falling
+  fallingLetters = fallingLetters.filter(fl => fl.alive);
+  fallingLetters.forEach(fl => { fl.update(); fl.draw(); });
+
+  // Lasers
+  lasers.forEach(l => { l.update(); l.draw(); });
+  lasers = lasers.filter(l => !l.done);
+
+  // Explosions
+  explosions.forEach(e => { e.update(); e.draw(); });
+  explosions = explosions.filter(e => e.alive);
+
+  updateLevel();
+}
+
+// ── START / END ───────────────────────────────────────────────────────────────
+function startGame() {
+  score = 0;
+  lives = 3;
+  level = 1;
+  spawnTimer = 0;
+  fallingLetters = [];
+  lasers = [];
+  explosions = [];
+  document.getElementById('score').textContent = '0';
+  document.getElementById('level').textContent = '1';
+  ['life1','life2','life3'].forEach(id => document.getElementById(id).style.opacity = '1');
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('gameover-screen').classList.add('hidden');
+  gameRunning = true;
+  gameLoop();
+}
+
+function endGame() {
+  gameRunning = false;
+  cancelAnimationFrame(animId);
+  document.getElementById('final-score').textContent = 'SCORE: ' + score;
+  document.getElementById('gameover-screen').classList.remove('hidden');
+}
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('restartBtn').addEventListener('click', startGame);
+
+// Animate stars on start screen
+function idleLoop() {
+  if (gameRunning) return;
+  requestAnimationFrame(idleLoop);
+  drawStars();
+}
+idleLoop();
+</script>
+</body>
+</html>
