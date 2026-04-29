@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Likwala Colour Catcher</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  :root {
+    --bg: #1a1a2e;
+    --panel: #16213e;
+    --accent: #e94560;
+    --gold: #f5a623;
+    --text: #eef0f2;
+    --btn-bg: #0f3460;
+    --btn-border: #2d6a9f;
+    --btn-hover: #1a5276;
+    --correct: #2ecc71;
+    --wrong: #e74c3c;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* HEADER */
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 20px;
+    background: var(--panel);
+    border-bottom: 2px solid #0f3460;
+    flex-shrink: 0;
+    gap: 12px;
+  }
+
+  #header h1 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.4rem;
+    color: var(--gold);
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+
+  #stats {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-weight: 800;
+    font-size: 0.95rem;
+  }
+
+  .stat-label { color: #7ec8e3; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .stat-val { color: var(--gold); font-size: 1.1rem; font-family: 'Fredoka One', cursive; }
+
+  #lives { display: flex; gap: 4px; font-size: 1.3rem; }
+  .heart { color: #e94560; transition: opacity 0.3s; }
+  .heart.lost { opacity: 0.15; filter: grayscale(1); }
+
+  /* GAME AREA */
+  #game-area {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, #0d1b2a 0%, #1a1a2e 100%);
+  }
+
+  /* subtle grid lines */
+  #game-area::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+  }
+
+  /* FALLING SWATCHES */
+  .swatch {
+    position: absolute;
+    width: 68px;
+    height: 68px;
+    border-radius: 14px;
+    border: 3px solid rgba(255,255,255,0.3);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+    cursor: default;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: box-shadow 0.1s;
+  }
+
+  .swatch-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 11px;
+  }
+
+  /* pulse glow while falling */
+  .swatch {
+    animation: swatchGlow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes swatchGlow {
+    from { box-shadow: 0 4px 20px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.2); }
+    to   { box-shadow: 0 4px 30px rgba(0,0,0,0.4), 0 0 12px rgba(255,255,255,0.12), inset 0 1px 0 rgba(255,255,255,0.2); }
+  }
+
+  @keyframes popCorrect {
+    0%   { transform: scale(1); opacity: 1; }
+    40%  { transform: scale(1.4); opacity: 0.9; }
+    100% { transform: scale(0); opacity: 0; }
+  }
+
+  @keyframes shakeWrong {
+    0%, 100% { transform: translateX(0); }
+    20%  { transform: translateX(-10px); }
+    40%  { transform: translateX(10px); }
+    60%  { transform: translateX(-8px); }
+    80%  { transform: translateX(8px); }
+  }
+
+  @keyframes dropOut {
+    0%   { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(40px); opacity: 0; }
+  }
+
+  /* DANGER LINE */
+  #danger-zone {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, transparent 0%, var(--accent) 30%, var(--accent) 70%, transparent 100%);
+    opacity: 0.5;
+  }
+
+  /* SCORE POPUP */
+  .score-popup {
+    position: absolute;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5rem;
+    color: var(--correct);
+    pointer-events: none;
+    animation: floatUp 0.9s ease forwards;
+    z-index: 50;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  }
+
+  @keyframes floatUp {
+    0%   { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-60px); opacity: 0; }
+  }
+
+  /* BUTTONS PANEL */
+  #buttons-panel {
+    background: var(--panel);
+    border-top: 2px solid #0f3460;
+    padding: 10px 12px;
+    flex-shrink: 0;
+  }
+
+  #buttons-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .word-btn {
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 800;
+    padding: 7px 13px;
+    background: var(--btn-bg);
+    color: var(--text);
+    border: 2px solid var(--btn-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+    letter-spacing: 0.3px;
+  }
+
+  .word-btn:hover {
+    background: var(--btn-hover);
+    border-color: #7ec8e3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+
+  .word-btn:active { transform: translateY(0) scale(0.96); }
+
+  .word-btn.correct-flash {
+    background: var(--correct) !important;
+    border-color: var(--correct) !important;
+    transform: scale(1.12);
+  }
+
+  .word-btn.wrong-flash {
+    background: var(--wrong) !important;
+    border-color: var(--wrong) !important;
+    animation: shakeBtn 0.35s ease;
+  }
+
+  @keyframes shakeBtn {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+
+  /* OVERLAYS */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 10, 20, 0.94);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    flex-direction: column;
+    gap: 18px;
+    padding: 24px;
+    backdrop-filter: blur(4px);
+  }
+
+  .overlay.hidden { display: none; }
+
+  .overlay h2 {
+    font-family: 'Fredoka One', cursive;
+    font-size: 2.6rem;
+    color: var(--gold);
+    text-align: center;
+    text-shadow: 0 0 30px rgba(245,166,35,0.4);
+  }
+
+  .overlay p {
+    font-size: 1rem;
+    color: #aaa;
+    text-align: center;
+    max-width: 420px;
+    line-height: 1.7;
+  }
+
+  .overlay .big-score {
+    font-family: 'Fredoka One', cursive;
+    font-size: 4.5rem;
+    color: var(--accent);
+    line-height: 1;
+    text-shadow: 0 0 40px rgba(233,69,96,0.5);
+  }
+
+  .overlay-btn {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.3rem;
+    padding: 14px 40px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 20px rgba(233,69,96,0.4);
+    letter-spacing: 0.5px;
+  }
+
+  .overlay-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 28px rgba(233,69,96,0.5);
+  }
+
+  .colour-preview {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    border: 3px solid rgba(255,255,255,0.3);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  }
+
+  /* level up flash */
+  #level-flash {
+    position: fixed;
+    inset: 0;
+    background: rgba(245,166,35,0.12);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 90;
+    transition: opacity 0.1s;
+  }
+
+  #level-flash.flash { opacity: 1; transition: opacity 0s; }
+
+  /* LEVEL BADGE */
+  #level-badge {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-family: 'Fredoka One', cursive;
+    font-size: 3rem;
+    color: var(--gold);
+    text-shadow: 0 0 40px rgba(245,166,35,0.8);
+    pointer-events: none;
+    opacity: 0;
+    z-index: 95;
+  }
+
+  #level-badge.show {
+    animation: levelPop 1.5s ease forwards;
+  }
+
+  @keyframes levelPop {
+    0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+    20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+    70%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <h1>🎨 Likwala Colours</h1>
+  <div id="stats">
+    <div>
+      <div class="stat-label">Score</div>
+      <div class="stat-val" id="score-display">0</div>
+    </div>
+    <div>
+      <div class="stat-label">Level</div>
+      <div class="stat-val" id="level-display">1</div>
+    </div>
+    <div id="lives">
+      <span class="heart" id="h1">♥</span>
+      <span class="heart" id="h2">♥</span>
+      <span class="heart" id="h3">♥</span>
+      <span class="heart" id="h4">♥</span>
+      <span class="heart" id="h5">♥</span>
+    </div>
+  </div>
+</div>
+
+<!-- GAME AREA -->
+<div id="game-area">
+  <div id="danger-zone"></div>
+  <div id="level-badge"></div>
+</div>
+
+<!-- LEVEL FLASH -->
+<div id="level-flash"></div>
+
+<!-- BUTTONS -->
+<div id="buttons-panel">
+  <div id="buttons-grid"></div>
+</div>
+
+<!-- START OVERLAY -->
+<div class="overlay" id="start-overlay">
+  <h2>🎨 Likwala Colours</h2>
+  <p>Colour swatches fall from the sky.<br>Click the <strong>Likwala word</strong> that names each colour before it hits the ground!</p>
+  <p style="color:#7ec8e3; font-size:0.85rem;">Level 1 starts with 1 swatch — up to 5 fall at once by Level 5!</p>
+  <button class="overlay-btn" onclick="startGame()">▶ Start Game</button>
+</div>
+
+<!-- GAME OVER OVERLAY -->
+<div class="overlay hidden" id="gameover-overlay">
+  <h2>Game Over</h2>
+  <div class="big-score" id="final-score">0</div>
+  <p>You reached <span id="final-level" style="color:var(--gold); font-weight:800;"></span></p>
+  <button class="overlay-btn" onclick="startGame()">↺ Play Again</button>
+</div>
+
+<script>
+// ============================================================
+// COLOUR DATA
+// filenames → { label, background }
+// ============================================================
+const COLOURS = [
+  { id: 'c_əlixstu',      label: 'c̓əlixstu',     bg: 'linear-gradient(135deg,#e8e8e8,#c0c0c0)', solid: '#c8c8c8' },  // silver/grey
+  { id: 'c_əstu',         label: 'c̓əstu',        bg: '#f0c060',                                  solid: '#f0c060' },  // sandy yellow
+  { id: 'c_uɫa',          label: 'c̓uɫa',         bg: '#111111',                                  solid: '#111111' },  // black
+  { id: 'dᶻasa',          label: 'dᶻasa',         bg: '#3daee0',                                  solid: '#3daee0' },  // blue
+  { id: 'g_ʷəg_ʷəmy_mstu',label: 'g̓ʷəg̓ʷəmy̓mstu', bg: '#b32020',                                  solid: '#b32020' },  // red
+  { id: 'kəlebəstu',      label: 'kəlebəstu',     bg: '#9b30cc',                                  solid: '#9b30cc' },  // purple
+  { id: 'kʷənx_a',        label: 'kʷənx̣a',        bg: '#7a4a2a',                                  solid: '#7a4a2a' },  // brown
+  { id: 'ɫənx_a',         label: 'ɫənx̣a',         bg: '#3db33d',                                  solid: '#3db33d' },  // green
+  { id: 'ƛ_ix_a',         label: 'ƛ̓ix̣a',          bg: '#f5e800',                                  solid: '#f5e800' },  // yellow
+  { id: 'məla',           label: 'məla',          bg: '#ffffff',                                  solid: '#ffffff' },  // white
+  { id: 'pinkstu',        label: 'pinkstu',       bg: '#ff8fa8',                                  solid: '#ff8fa8' },  // pink
+  { id: 'qol',            label: 'qol',           bg: 'linear-gradient(135deg,#c8960a,#e8c020)',  solid: '#c8960a' },  // gold
+  { id: 'wag_alustu',     label: 'wag̓alustu',     bg: 'linear-gradient(90deg,#ff2200,#ff9900,#ffee00,#33cc33,#2288ff,#8833ff)', solid: '#ff9900' },  // rainbow
+  { id: 'ʔayəndᶻistu',   label: 'ʔayəndᶻistu',   bg: '#f5a000',                                  solid: '#f5a000' },  // orange
+  { id: 'ʔigistu',        label: 'ʔigistu',       bg: '#909090',                                  solid: '#909090' },  // grey
+];
+
+// ============================================================
+// GAME STATE
+// ============================================================
+let score = 0;
+let lives = 5;
+let level = 1;
+let gameRunning = false;
+let swatches = [];       // active DOM swatch objects
+let animFrame = null;
+let lastSpawn = 0;
+let spawnInterval = 3000;  // ms between spawns
+let fallSpeed = 0.032;       // px per ms
+let scoreThreshold = 5;    // correct answers to level up
+let correctThisLevel = 0;
+let pendingSwatches = 0;   // count of swatches currently on screen
+
+function maxSwatches() {
+  return Math.min(level, 5);
+}
+
+const gameArea = document.getElementById('game-area');
+const scoreEl  = document.getElementById('score-display');
+const levelEl  = document.getElementById('level-display');
+const btnGrid  = document.getElementById('buttons-grid');
+
+// ============================================================
+// BUILD BUTTONS
+// ============================================================
+function buildButtons() {
+  btnGrid.innerHTML = '';
+  COLOURS.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'word-btn';
+    btn.textContent = c.label;
+    btn.dataset.id = c.id;
+    btn.addEventListener('click', () => handleGuess(c.id, btn));
+    btnGrid.appendChild(btn);
+  });
+}
+
+// ============================================================
+// START / RESET
+// ============================================================
+function startGame() {
+  document.getElementById('start-overlay').classList.add('hidden');
+  document.getElementById('gameover-overlay').classList.add('hidden');
+
+  score = 0;
+  lives = 5;
+  level = 1;
+  correctThisLevel = 0;
+  fallSpeed = 0.032;
+  spawnInterval = 3200;
+  swatches = [];
+  gameRunning = true;
+  lastSpawn = 0;
+
+  // clear any existing swatches
+  gameArea.querySelectorAll('.swatch').forEach(s => s.remove());
+
+  updateHUD();
+  buildButtons();
+  if (animFrame) cancelAnimationFrame(animFrame);
+  let lastTime = null;
+  animFrame = requestAnimationFrame(t => gameLoop(t, t));
+}
+
+// ============================================================
+// GAME LOOP
+// ============================================================
+function gameLoop(timestamp, lastTime) {
+  if (!gameRunning) return;
+
+  const dt = timestamp - lastTime;
+
+  // spawn
+  const active = swatches.length;
+  if (active < maxSwatches() && (timestamp - lastSpawn) > spawnInterval) {
+    spawnSwatch();
+    lastSpawn = timestamp;
+  }
+
+  // move swatches
+  const gameH = gameArea.clientHeight;
+  const toRemove = [];
+
+  swatches.forEach(sw => {
+    sw.y += fallSpeed * dt;
+    sw.el.style.top = sw.y + 'px';
+
+    // hit bottom
+    if (sw.y + 68 >= gameH) {
+      toRemove.push(sw);
+      missedSwatch(sw);
+    }
+  });
+
+  toRemove.forEach(sw => removeSwatch(sw));
+
+  animFrame = requestAnimationFrame(t => gameLoop(t, timestamp));
+}
+
+// ============================================================
+// SPAWN
+// ============================================================
+function spawnSwatch() {
+  const colour = COLOURS[Math.floor(Math.random() * COLOURS.length)];
+  const gameW = gameArea.clientWidth;
+
+  // pick x so swatch doesn't overlap existing ones too much
+  const margin = 10;
+  const swW = 68;
+  let x;
+  let tries = 0;
+  do {
+    x = margin + Math.random() * (gameW - swW - margin * 2);
+    tries++;
+  } while (tries < 20 && swatches.some(sw => Math.abs(sw.x - x) < swW + 8));
+
+  const el = document.createElement('div');
+  el.className = 'swatch';
+  el.style.left = x + 'px';
+  el.style.top = '-72px';
+
+  const inner = document.createElement('div');
+  inner.className = 'swatch-inner';
+  if (colour.bg.startsWith('linear-gradient')) {
+    inner.style.background = colour.bg;
+  } else {
+    inner.style.background = colour.bg;
+  }
+  el.appendChild(inner);
+
+  gameArea.appendChild(el);
+
+  const sw = { id: colour.id, el, x, y: -72, removing: false };
+  swatches.push(sw);
+}
+
+// ============================================================
+// HANDLE GUESS
+// ============================================================
+function handleGuess(guessId, btn) {
+  if (!gameRunning) return;
+
+  // find topmost (lowest y) non-removing swatch to "target"
+  // actually: find any swatch matching the guess
+  const match = swatches.find(sw => sw.id === guessId && !sw.removing);
+
+  if (match) {
+    // CORRECT
+    score += 10;
+    correctThisLevel++;
+    updateHUD();
+    btn.classList.add('correct-flash');
+    setTimeout(() => btn.classList.remove('correct-flash'), 400);
+
+    // score popup
+    showScorePopup(match.x + 34, match.y, '+10');
+
+    // pop animation
+    match.removing = true;
+    match.el.style.animation = 'none';
+    match.el.style.transition = 'transform 0.35s ease, opacity 0.35s ease';
+    match.el.style.transform = 'scale(1.4)';
+    match.el.style.opacity = '0';
+    setTimeout(() => {
+      match.el.remove();
+      swatches = swatches.filter(s => s !== match);
+    }, 350);
+
+    // level up?
+    if (correctThisLevel >= scoreThreshold) {
+      levelUp();
+    }
+
+  } else {
+    // WRONG - no such colour on screen (or already gone)
+    btn.classList.add('wrong-flash');
+    setTimeout(() => btn.classList.remove('wrong-flash'), 400);
+
+    // flash screen red briefly
+    flashScreen('rgba(233,69,96,0.15)');
+  }
+}
+
+// ============================================================
+// MISSED SWATCH
+// ============================================================
+function missedSwatch(sw) {
+  if (sw.removing) return;
+  sw.removing = true;
+
+  sw.el.style.animation = 'none';
+  sw.el.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+  sw.el.style.transform = 'translateY(20px)';
+  sw.el.style.opacity = '0';
+  setTimeout(() => sw.el.remove(), 300);
+
+  lives--;
+  updateHUD();
+  flashScreen('rgba(233,69,96,0.25)');
+
+  if (lives <= 0) {
+    gameOver();
+  }
+}
+
+function removeSwatch(sw) {
+  swatches = swatches.filter(s => s !== sw);
+}
+
+// ============================================================
+// LEVEL UP
+// ============================================================
+function levelUp() {
+  level++;
+  correctThisLevel = 0;
+  fallSpeed = Math.min(0.032 + (level - 1) * 0.035, 0.95);
+  spawnInterval = Math.max(3200 - (level - 1) * 175, 1200);
+  scoreThreshold = 5 + (level - 1) * 1;
+
+  updateHUD();
+
+  // visual level up
+  const badge = document.getElementById('level-badge');
+  badge.textContent = `Level ${level}!`;
+  badge.classList.remove('show');
+  void badge.offsetWidth;
+  badge.classList.add('show');
+
+  const flash = document.getElementById('level-flash');
+  flash.classList.add('flash');
+  setTimeout(() => flash.classList.remove('flash'), 120);
+  setTimeout(() => flash.style.transition = 'opacity 0.6s', 130);
+  setTimeout(() => { flash.style.opacity = '0'; }, 150);
+  setTimeout(() => { flash.style.transition = ''; flash.style.opacity = ''; }, 800);
+}
+
+// ============================================================
+// GAME OVER
+// ============================================================
+function gameOver() {
+  gameRunning = false;
+  cancelAnimationFrame(animFrame);
+
+  // clear swatches
+  swatches.forEach(sw => sw.el.remove());
+  swatches = [];
+
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-level').textContent = `Level ${level}`;
+  document.getElementById('gameover-overlay').classList.remove('hidden');
+}
+
+// ============================================================
+// HUD
+// ============================================================
+function updateHUD() {
+  scoreEl.textContent = score;
+  levelEl.textContent = level;
+
+  for (let i = 1; i <= 5; i++) {
+    const h = document.getElementById('h' + i);
+    if (i <= lives) h.classList.remove('lost');
+    else h.classList.add('lost');
+  }
+}
+
+// ============================================================
+// HELPERS
+// ============================================================
+function flashScreen(color) {
+  const f = document.getElementById('level-flash');
+  f.style.background = color;
+  f.style.opacity = '1';
+  f.style.transition = 'none';
+  setTimeout(() => {
+    f.style.transition = 'opacity 0.5s';
+    f.style.opacity = '0';
+  }, 80);
+  setTimeout(() => { f.style.background = 'rgba(245,166,35,0.12)'; }, 600);
+}
+
+function showScorePopup(x, y, text) {
+  const el = document.createElement('div');
+  el.className = 'score-popup';
+  el.textContent = text;
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  gameArea.appendChild(el);
+  setTimeout(() => el.remove(), 900);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+buildButtons();
+</script>
+</body>
+</html>
