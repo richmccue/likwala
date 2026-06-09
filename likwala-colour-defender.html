@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lik̓wala Colour Defender</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cedar: #9c2a2a;
+    --cedar-deep: #6e1d1d;
+    --ocean: #1f6f7a;
+    --ocean-light: #2e98a6;
+    --gold: #d4a017;
+    --moss: #4a7340;
+    --deepsea: #122e3f;
+    --deepsea-2: #1b4258;
+    --sand: #f3ece0;
+    --cream: #f7f2e8;
+    --ink: #1a1410;
+    --shadow: rgba(18, 46, 63, 0.28);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  body {
+    font-family: 'Inter Tight', system-ui, sans-serif;
+    background:
+      radial-gradient(ellipse at 50% -10%, #1f4d63 0%, transparent 60%),
+      linear-gradient(180deg, #122e3f 0%, #0d2230 100%);
+    color: var(--cream);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 100vh;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* ---------- HUD ---------- */
+  .hud {
+    width: 100%;
+    max-width: 1180px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 28px 10px;
+    gap: 18px;
+  }
+
+  .title-block { display: flex; align-items: baseline; gap: 14px; }
+
+  .game-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    font-size: clamp(22px, 3vw, 34px);
+    letter-spacing: 0.5px;
+    color: var(--cream);
+    line-height: 1;
+  }
+  .game-title .accent { color: var(--gold); }
+
+  .subtitle {
+    font-size: 12px;
+    color: rgba(247, 242, 232, 0.55);
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+
+  .stats { display: flex; align-items: center; gap: 22px; }
+
+  .stat { text-align: center; }
+  .stat-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(247, 242, 232, 0.5);
+    font-weight: 600;
+  }
+  .stat-value {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    font-size: 28px;
+    line-height: 1;
+    color: var(--cream);
+  }
+  #score-value { color: var(--gold); }
+
+  .lives { display: flex; gap: 5px; font-size: 22px; line-height: 1; }
+  .life { color: var(--cedar); transition: transform 0.3s, opacity 0.3s; }
+  .life.lost { opacity: 0.18; transform: scale(0.7); color: #555; }
+
+  /* ---------- PLAYFIELD ---------- */
+  .field-wrap {
+    flex: 1;
+    width: 100%;
+    max-width: 1180px;
+    padding: 0 20px;
+    min-height: 0;
+    display: flex;
+  }
+
+  #field {
+    position: relative;
+    flex: 1;
+    border-radius: 18px 18px 0 0;
+    background:
+      linear-gradient(180deg, rgba(46, 152, 166, 0.06) 0%, rgba(18, 46, 63, 0.0) 30%),
+      repeating-linear-gradient(180deg, transparent, transparent 78px, rgba(255,255,255,0.025) 78px, rgba(255,255,255,0.025) 79px);
+    border: 1px solid rgba(46, 152, 166, 0.18);
+    border-bottom: none;
+    overflow: hidden;
+    box-shadow: inset 0 -40px 60px -30px rgba(156, 42, 42, 0.35);
+  }
+
+  /* horizon line at bottom = danger zone */
+  #field::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--cedar) 20%, var(--cedar) 80%, transparent);
+    box-shadow: 0 0 14px 2px rgba(156, 42, 42, 0.6);
+  }
+
+  .swatch {
+    position: absolute;
+    width: 78px;
+    height: 92px;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px -6px var(--shadow), inset 0 0 0 1px rgba(255,255,255,0.25);
+    will-change: transform;
+    overflow: hidden;
+  }
+  .swatch img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 12px;
+  }
+  .swatch::before {
+    content: "";
+    position: absolute; inset: 0;
+    border-radius: 12px;
+    box-shadow: inset 0 2px 6px rgba(255,255,255,0.4), inset 0 -8px 16px rgba(0,0,0,0.15);
+    pointer-events: none;
+  }
+
+  @keyframes pop {
+    0%   { transform: scale(1); filter: brightness(1); }
+    40%  { transform: scale(1.25); filter: brightness(1.6); }
+    100% { transform: scale(0); filter: brightness(2); opacity: 0; }
+  }
+  .swatch.hit { animation: pop 0.32s cubic-bezier(.3,1.4,.5,1) forwards; }
+
+  @keyframes shatter {
+    0%   { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(18px) scale(0.6); opacity: 0; }
+  }
+  .swatch.missed { animation: shatter 0.3s ease-in forwards; }
+
+  /* spark burst on hit */
+  .spark {
+    position: absolute;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  @keyframes fly {
+    to { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+  }
+
+  /* ---------- WORD BANK ---------- */
+  .wordbank {
+    width: 100%;
+    max-width: 1180px;
+    background: linear-gradient(180deg, #0d2230 0%, #0a1a24 100%);
+    border-top: 2px solid var(--gold);
+    padding: 14px 20px 18px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    justify-content: center;
+  }
+
+  .word-btn {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--cream);
+    background: linear-gradient(180deg, var(--deepsea-2) 0%, #14384b 100%);
+    border: 1px solid rgba(46, 152, 166, 0.45);
+    border-radius: 10px;
+    padding: 10px 15px;
+    cursor: pointer;
+    transition: transform 0.08s, background 0.15s, box-shadow 0.15s, border-color 0.15s;
+    box-shadow: 0 3px 0 0 rgba(0,0,0,0.35);
+    position: relative;
+  }
+  .word-btn .swatch-dot {
+    display: inline-block;
+    width: 11px; height: 11px;
+    border-radius: 3px;
+    margin-right: 7px;
+    vertical-align: -1px;
+    border: 1px solid rgba(255,255,255,0.4);
+  }
+  .word-btn:hover {
+    background: linear-gradient(180deg, var(--ocean) 0%, var(--ocean-light) 100%);
+    border-color: var(--gold);
+    transform: translateY(-1px);
+  }
+  .word-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 0 rgba(0,0,0,0.35); }
+  .word-btn.correct { animation: btnFlashGood 0.4s ease; }
+  .word-btn.wrong   { animation: btnFlashBad 0.4s ease; }
+  @keyframes btnFlashGood {
+    0%,100% { background: linear-gradient(180deg, var(--deepsea-2) 0%, #14384b 100%); }
+    50% { background: linear-gradient(180deg, var(--moss) 0%, #5e8f52 100%); }
+  }
+  @keyframes btnFlashBad {
+    0%,100% { transform: translateY(0); }
+    25% { transform: translateX(-5px); background: var(--cedar); }
+    75% { transform: translateX(5px); background: var(--cedar); }
+  }
+  .word-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+  /* ---------- OVERLAYS ---------- */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(7, 18, 26, 0.82);
+    backdrop-filter: blur(6px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    z-index: 50;
+    padding: 24px;
+  }
+  .overlay.hidden { display: none; }
+
+  .panel {
+    max-width: 560px;
+    background: linear-gradient(180deg, rgba(31, 77, 99, 0.5), rgba(13, 34, 48, 0.7));
+    border: 1px solid rgba(212, 160, 23, 0.45);
+    border-radius: 20px;
+    padding: 40px 44px;
+    box-shadow: 0 30px 80px -30px #000;
+  }
+
+  .big-title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    font-size: clamp(34px, 6vw, 52px);
+    line-height: 1.05;
+    margin-bottom: 6px;
+  }
+  .big-title .accent { color: var(--gold); }
+
+  .lede {
+    font-size: 16px;
+    line-height: 1.55;
+    color: rgba(247, 242, 232, 0.82);
+    margin: 14px auto 26px;
+    max-width: 440px;
+  }
+  .lede b { color: var(--gold); font-weight: 600; }
+
+  .btn {
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 700;
+    font-size: 19px;
+    letter-spacing: 0.4px;
+    color: var(--deepsea);
+    background: linear-gradient(180deg, var(--gold) 0%, #b8860b 100%);
+    border: none;
+    border-radius: 12px;
+    padding: 15px 40px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 0 #8a6608, 0 12px 24px -8px rgba(212,160,23,0.6);
+    transition: transform 0.08s;
+  }
+  .btn:hover { transform: translateY(-1px); }
+  .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 0 #8a6608; }
+  .btn:focus-visible { outline: 3px solid var(--cream); outline-offset: 3px; }
+
+  .final-score {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    font-size: 64px;
+    color: var(--gold);
+    line-height: 1;
+    margin: 8px 0 4px;
+  }
+
+  .attribution {
+    font-size: 12px;
+    color: rgba(247, 242, 232, 0.45);
+    margin-top: 22px;
+    line-height: 1.5;
+    max-width: 460px;
+  }
+
+  @media (max-width: 620px) {
+    .word-btn { font-size: 14px; padding: 9px 11px; }
+    .swatch { width: 60px; height: 72px; }
+    .stats { gap: 14px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .swatch.hit, .swatch.missed, .word-btn.correct, .word-btn.wrong { animation-duration: 0.01ms; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="hud">
+    <div class="title-block">
+      <div>
+        <div class="game-title">Lik̓wala <span class="accent">Colour Defender</span></div>
+        <div class="subtitle">Match the falling swatch to its Lik̓wala name</div>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat">
+        <div class="stat-label">Score</div>
+        <div class="stat-value" id="score-value">0</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Level</div>
+        <div class="stat-value" id="level-value">1</div>
+      </div>
+      <div class="stat">
+        <div class="stat-label">Lives</div>
+        <div class="lives" id="lives"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="field-wrap">
+    <div id="field"></div>
+  </div>
+
+  <div class="wordbank" id="wordbank"></div>
+
+  <!-- START -->
+  <div class="overlay" id="start-overlay">
+    <div class="panel">
+      <div class="big-title">Lik̓wala <span class="accent">Colour Defender</span></div>
+      <p class="lede">
+        Colour swatches drift down from the sky. Tap the button with the matching
+        <b>Lik̓wala colour name</b> before a swatch reaches the bottom line.
+        Miss one and you lose a life. The longer you last, the faster they fall.
+      </p>
+      <button class="btn" id="start-btn">Start game</button>
+      <p class="attribution">
+        Lik̓wala colour names and spellings to be confirmed with community language keepers
+        before publishing.
+      </p>
+    </div>
+  </div>
+
+  <!-- GAME OVER -->
+  <div class="overlay hidden" id="over-overlay">
+    <div class="panel">
+      <div class="big-title">Game <span class="accent">over</span></div>
+      <div class="final-score" id="final-score">0</div>
+      <p class="lede" id="over-msg">You kept the colours in the sky for a good while.</p>
+      <button class="btn" id="again-btn">Play again</button>
+    </div>
+  </div>
+
+<script>
+/* =========================================================
+   Lik'wala colour data
+   filename (in /colours, no extension) -> display spelling + a
+   representative CSS colour for the small dot on each button.
+   ========================================================= */
+const COLOURS = [
+  { file: "c_uɫa",            word: "c̓uɫa",            dot: "#dfe2e6" }, // silver / shiny white
+  { file: "c_əlixstu",        word: "c̓əlixstu",        dot: "#d4a017" }, // gold gradient
+  { file: "c_əstu",           word: "c̓əstu",           dot: "#0a0a0a" }, // black
+  { file: "dᶻasa",            word: "dᶻasa",            dot: "#2e8bcb" }, // blue
+  { file: "g_ʷəg_ʷəmy_mstu",  word: "g̓ʷəg̓ʷəmy̓mstu",  dot: "linear-gradient(90deg,#e23,#fd0,#3c3,#36f,#80f)" }, // rainbow
+  { file: "kəlebəstu",        word: "kəlebəstu",        dot: "#f59e0b" }, // orange
+  { file: "kʷənx_a",          word: "kʷənx̓a",          dot: "#39a845" }, // green
+  { file: "məla",             word: "məla",             dot: "#3a2a1d" }, // dark / black-brown
+  { file: "pinkstu",          word: "pinkstu",          dot: "#fb95a8" }, // pink
+  { file: "qol",              word: "qol",              dot: "#cda017" }, // gold-yellow
+  { file: "wag_alustu",       word: "wag̓alustu",       dot: "#a8a8a8" }, // grey
+  { file: "ƛ_ix_a",           word: "ƛ̓ix̓a",            dot: "#a3171b" }, // red
+  { file: "ɫənx_a",           word: "ɫənx̓a",           dot: "#f5d800" }, // yellow
+  { file: "ʔayəndᶻistu",      word: "ʔayəndᶻistu",      dot: "#9333a8" }, // purple
+  { file: "ʔigistu",          word: "ʔigistu",          dot: "#6f4a33" }, // brown
+];
+
+const FOLDER = "colours/";
+const EXT = ".png";
+
+/* ---------- game state ---------- */
+const field = document.getElementById('field');
+const wordbank = document.getElementById('wordbank');
+const scoreEl = document.getElementById('score-value');
+const levelEl = document.getElementById('level-value');
+const livesEl = document.getElementById('lives');
+
+const startOverlay = document.getElementById('start-overlay');
+const overOverlay = document.getElementById('over-overlay');
+const finalScoreEl = document.getElementById('final-score');
+const overMsg = document.getElementById('over-msg');
+
+let state = null;
+let rafId = null;
+let lastTime = 0;
+
+const SWATCH_W = window.innerWidth < 620 ? 60 : 78;
+const SWATCH_H = window.innerWidth < 620 ? 72 : 92;
+const MAX_ACTIVE = 3;
+const START_LIVES = 3;
+
+function newState() {
+  return {
+    score: 0,
+    level: 1,
+    lives: START_LIVES,
+    active: [],          // {el, colour, x, y, speed}
+    baseSpeed: 42,       // px / second
+    spawnGap: 1500,      // ms between spawns
+    lastSpawn: 0,
+    cleared: 0,          // swatches successfully shot (for levelling)
+    running: false,
+  };
+}
+
+/* ---------- build word buttons ---------- */
+function buildWordbank() {
+  wordbank.innerHTML = "";
+  COLOURS.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'word-btn';
+    b.type = 'button';
+    const dotStyle = c.dot.startsWith('linear') ? `background:${c.dot}` : `background:${c.dot}`;
+    b.innerHTML = `<span class="swatch-dot" style="${dotStyle}"></span>${c.word}`;
+    b.addEventListener('click', () => handleGuess(c.file, b));
+    wordbank.appendChild(b);
+  });
+}
+
+/* ---------- lives display ---------- */
+function renderLives() {
+  livesEl.innerHTML = "";
+  for (let i = 0; i < START_LIVES; i++) {
+    const s = document.createElement('span');
+    s.className = 'life' + (i >= state.lives ? ' lost' : '');
+    s.textContent = '♥';
+    livesEl.appendChild(s);
+  }
+}
+
+/* ---------- spawning ---------- */
+function activeFiles() {
+  return state.active.map(a => a.colour.file);
+}
+
+function spawnSwatch() {
+  if (state.active.length >= MAX_ACTIVE) return;
+  // pick a colour not already on screen (active swatches always distinct)
+  const taken = new Set(activeFiles());
+  const pool = COLOURS.filter(c => !taken.has(c.file));
+  if (pool.length === 0) return;
+  const colour = pool[Math.floor(Math.random() * pool.length)];
+
+  const el = document.createElement('div');
+  el.className = 'swatch';
+  const img = document.createElement('img');
+  img.src = FOLDER + colour.file + EXT;
+  img.alt = colour.word;
+  img.draggable = false;
+  el.appendChild(img);
+
+  const fw = field.clientWidth;
+  const x = Math.random() * (fw - SWATCH_W - 16) + 8;
+  const y = -SWATCH_H;
+  el.style.transform = `translate(${x}px, ${y}px)`;
+  field.appendChild(el);
+
+  state.active.push({ el, colour, x, y, speed: state.baseSpeed * (0.85 + Math.random() * 0.4) });
+}
+
+/* ---------- guessing ---------- */
+function handleGuess(file, btn) {
+  if (!state || !state.running) return;
+  // find the LOWEST active swatch matching this colour (most urgent)
+  let target = null;
+  for (const a of state.active) {
+    if (a.colour.file === file && !a.el.classList.contains('hit')) {
+      if (!target || a.y > target.y) target = a;
+    }
+  }
+  if (target) {
+    shootDown(target, btn);
+  } else {
+    // wrong: no swatch of that colour on screen
+    btn.classList.remove('wrong'); void btn.offsetWidth;
+    btn.classList.add('wrong');
+    setTimeout(() => btn.classList.remove('wrong'), 400);
+  }
+}
+
+function shootDown(item, btn) {
+  btn.classList.remove('correct'); void btn.offsetWidth;
+  btn.classList.add('correct');
+  setTimeout(() => btn.classList.remove('correct'), 400);
+
+  item.el.classList.add('hit');
+  burst(item.x + SWATCH_W / 2, item.y + SWATCH_H / 2, item.colour.dot);
+
+  // remove from active immediately so it can't be matched again
+  state.active = state.active.filter(a => a !== item);
+  setTimeout(() => item.el.remove(), 340);
+
+  state.score += 10 * state.level;
+  state.cleared += 1;
+  scoreEl.textContent = state.score;
+
+  // level up every 8 cleared
+  if (state.cleared % 8 === 0) {
+    state.level += 1;
+    levelEl.textContent = state.level;
+    state.baseSpeed *= 1.18;
+    state.spawnGap = Math.max(650, state.spawnGap * 0.88);
+  }
+}
+
+function burst(cx, cy, colour) {
+  const fill = colour.startsWith('linear') ? '#ffd34d' : colour;
+  for (let i = 0; i < 10; i++) {
+    const s = document.createElement('div');
+    s.className = 'spark';
+    s.style.background = fill;
+    s.style.left = cx + 'px';
+    s.style.top = cy + 'px';
+    const ang = (Math.PI * 2 * i) / 10;
+    const dist = 30 + Math.random() * 30;
+    s.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+    s.style.setProperty('--dy', Math.sin(ang) * dist + 'px');
+    s.style.animation = `fly ${300 + Math.random() * 200}ms ease-out forwards`;
+    field.appendChild(s);
+    setTimeout(() => s.remove(), 520);
+  }
+}
+
+/* ---------- miss ---------- */
+function missSwatch(item) {
+  item.el.classList.add('missed');
+  state.active = state.active.filter(a => a !== item);
+  setTimeout(() => item.el.remove(), 320);
+
+  state.lives -= 1;
+  renderLives();
+  flashDanger();
+
+  if (state.lives <= 0) endGame();
+}
+
+function flashDanger() {
+  field.style.transition = 'box-shadow 0.1s';
+  field.style.boxShadow = 'inset 0 -60px 80px -20px rgba(156, 42, 42, 0.7)';
+  setTimeout(() => { field.style.boxShadow = ''; }, 180);
+}
+
+/* ---------- main loop ---------- */
+function loop(t) {
+  if (!state || !state.running) return;
+  if (!lastTime) lastTime = t;
+  const dt = (t - lastTime) / 1000;
+  lastTime = t;
+
+  // spawn
+  if (t - state.lastSpawn > state.spawnGap && state.active.length < MAX_ACTIVE) {
+    spawnSwatch();
+    state.lastSpawn = t;
+  }
+
+  const floor = field.clientHeight - SWATCH_H;
+  for (const a of [...state.active]) {
+    a.y += a.speed * dt;
+    a.el.style.transform = `translate(${a.x}px, ${a.y}px)`;
+    if (a.y >= floor) missSwatch(a);
+  }
+
+  rafId = requestAnimationFrame(loop);
+}
+
+/* ---------- start / end ---------- */
+function startGame() {
+  cancelAnimationFrame(rafId);
+  field.querySelectorAll('.swatch, .spark').forEach(n => n.remove());
+  state = newState();
+  state.running = true;
+  scoreEl.textContent = '0';
+  levelEl.textContent = '1';
+  renderLives();
+  startOverlay.classList.add('hidden');
+  overOverlay.classList.add('hidden');
+  lastTime = 0;
+  state.lastSpawn = performance.now() - state.spawnGap; // spawn first quickly
+  rafId = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  state.running = false;
+  cancelAnimationFrame(rafId);
+  finalScoreEl.textContent = state.score;
+  let msg;
+  if (state.score >= 300) msg = "Outstanding! You are a true colour keeper.";
+  else if (state.score >= 150) msg = "Strong defending. The colours stayed in the sky.";
+  else if (state.score >= 60) msg = "Good effort. Keep practising the names!";
+  else msg = "Every round teaches the colours a little better.";
+  overMsg.textContent = msg;
+  overOverlay.classList.remove('hidden');
+}
+
+/* ---------- wire up ---------- */
+document.getElementById('start-btn').addEventListener('click', startGame);
+document.getElementById('again-btn').addEventListener('click', startGame);
+buildWordbank();
+</script>
+</body>
+</html>
