@@ -166,6 +166,36 @@
   }
   .swatch.missed { animation: shatter 0.3s ease-in forwards; }
 
+  /* laser beam fired from keyboard to swatch */
+  .laser {
+    position: absolute;
+    height: 4px;
+    border-radius: 4px;
+    transform-origin: left center;
+    background: linear-gradient(90deg, rgba(212,160,23,0) 0%, var(--gold) 30%, #fff6d8 100%);
+    box-shadow: 0 0 10px 2px rgba(212, 160, 23, 0.85), 0 0 20px 4px rgba(212, 160, 23, 0.45);
+    pointer-events: none;
+    z-index: 5;
+  }
+  .laser::after {
+    content: "";
+    position: absolute;
+    right: -5px; top: 50%;
+    width: 14px; height: 14px;
+    margin-top: -7px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff6d8 0%, var(--gold) 55%, rgba(212,160,23,0) 75%);
+  }
+  @keyframes laserIn {
+    0%   { opacity: 0; transform: scaleX(0); }
+    18%  { opacity: 1; }
+    100% { opacity: 1; transform: scaleX(1); }
+  }
+  @keyframes laserFade {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
   /* spark burst on hit */
   .spark {
     position: absolute;
@@ -518,12 +548,21 @@ function shootDown(item, btn) {
   btn.classList.add('correct');
   setTimeout(() => btn.classList.remove('correct'), 400);
 
-  item.el.classList.add('hit');
-  burst(item.x + SWATCH_W / 2, item.y + SWATCH_H / 2, item.colour.dot);
-
   // remove from active immediately so it can't be matched again
   state.active = state.active.filter(a => a !== item);
-  setTimeout(() => item.el.remove(), 340);
+
+  const tx = item.x + SWATCH_W / 2;
+  const ty = item.y + SWATCH_H / 2;
+  const TRAVEL = 160; // ms for beam to reach target
+
+  fireLaser(tx, ty, TRAVEL);
+
+  // impact: pop the swatch + spark burst once the beam lands
+  setTimeout(() => {
+    item.el.classList.add('hit');
+    burst(tx, ty, item.colour.dot);
+    setTimeout(() => item.el.remove(), 340);
+  }, TRAVEL);
 
   state.score += 10 * state.level;
   state.cleared += 1;
@@ -536,6 +575,32 @@ function shootDown(item, btn) {
     state.baseSpeed *= 1.18;
     state.spawnGap = Math.max(650, state.spawnGap * 0.88);
   }
+}
+
+function fireLaser(tx, ty, travel) {
+  // origin: middle of the keyboard, i.e. bottom-centre of the field
+  const ox = field.clientWidth / 2;
+  const oy = field.clientHeight;
+  const dx = tx - ox;
+  const dy = ty - oy;
+  const len = Math.hypot(dx, dy);
+  const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+
+  const beam = document.createElement('div');
+  beam.className = 'laser';
+  beam.style.left = ox + 'px';
+  beam.style.top = oy + 'px';
+  beam.style.width = len + 'px';
+  beam.style.transform = `rotate(${ang}deg) scaleX(0)`;
+  beam.style.animation = `laserIn ${travel}ms ease-out forwards`;
+  field.appendChild(beam);
+
+  // hold briefly at full length, then fade and remove
+  setTimeout(() => {
+    beam.style.transform = `rotate(${ang}deg) scaleX(1)`;
+    beam.style.animation = 'laserFade 140ms ease-in forwards';
+  }, travel);
+  setTimeout(() => beam.remove(), travel + 160);
 }
 
 function burst(cx, cy, colour) {
@@ -601,7 +666,7 @@ function loop(t) {
 /* ---------- start / end ---------- */
 function startGame() {
   cancelAnimationFrame(rafId);
-  field.querySelectorAll('.swatch, .spark').forEach(n => n.remove());
+  field.querySelectorAll('.swatch, .spark, .laser').forEach(n => n.remove());
   state = newState();
   state.running = true;
   scoreEl.textContent = '0';
