@@ -446,8 +446,7 @@ function buildWordbank() {
     const b = document.createElement('button');
     b.className = 'word-btn';
     b.type = 'button';
-    const dotStyle = c.dot.startsWith('linear') ? `background:${c.dot}` : `background:${c.dot}`;
-    b.innerHTML = `<span class="swatch-dot" style="${dotStyle}"></span>${c.word}`;
+    b.textContent = c.word;
     b.addEventListener('click', () => handleGuess(c.file, b));
     wordbank.appendChild(b);
   });
