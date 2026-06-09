@@ -105,7 +105,43 @@
     padding: 0 20px;
     min-height: 0;
     display: flex;
+    position: relative;
   }
+
+  .tier-banner {
+    position: absolute;
+    top: 18%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(13, 34, 48, 0.92);
+    border: 1px solid var(--gold);
+    border-radius: 14px;
+    padding: 16px 28px;
+    text-align: center;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    font-size: 26px;
+    color: var(--gold);
+    box-shadow: 0 12px 40px -12px #000;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 8;
+  }
+  .tier-banner .sub {
+    display: block;
+    font-family: 'Inter Tight', sans-serif;
+    font-weight: 500;
+    font-size: 14px;
+    color: rgba(247, 242, 232, 0.8);
+    margin-top: 4px;
+  }
+  @keyframes tierPulse {
+    0%   { opacity: 0; transform: translateX(-50%) translateY(10px) scale(0.95); }
+    15%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    80%  { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+    100% { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(1); }
+  }
+  .tier-banner.show { animation: tierPulse 1.8s ease forwards; }
 
   #field {
     position: relative;
@@ -260,6 +296,16 @@
     75% { transform: translateX(5px); background: var(--cedar); }
   }
   .word-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+  .word-btn.mastered {
+    border-color: var(--moss);
+    background: linear-gradient(180deg, #2f4d2a 0%, #3a5e33 100%);
+  }
+  .word-btn.mastered::after {
+    content: "✓";
+    margin-left: 7px;
+    color: #9fd18f;
+    font-weight: 700;
+  }
 
   /* ---------- OVERLAYS ---------- */
   .overlay {
@@ -321,6 +367,63 @@
   .btn:active { transform: translateY(4px); box-shadow: 0 1px 0 0 #8a6608; }
   .btn:focus-visible { outline: 3px solid var(--cream); outline-offset: 3px; }
 
+  .difficulty {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 4px 0 8px;
+  }
+  .diff-btn {
+    font-family: 'Inter Tight', sans-serif;
+    text-align: left;
+    cursor: pointer;
+    border: 1px solid rgba(46, 152, 166, 0.45);
+    border-radius: 14px;
+    padding: 16px 20px;
+    background: linear-gradient(180deg, rgba(27, 66, 88, 0.7) 0%, rgba(20, 56, 75, 0.7) 100%);
+    color: var(--cream);
+    transition: transform 0.08s, border-color 0.15s, background 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 0 0 rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .diff-btn:hover {
+    border-color: var(--gold);
+    background: linear-gradient(180deg, var(--ocean) 0%, var(--ocean-light) 100%);
+    transform: translateY(-1px);
+  }
+  .diff-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 0 rgba(0,0,0,0.3); }
+  .diff-btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  .diff-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    font-size: 24px;
+    line-height: 1;
+    color: var(--gold);
+  }
+  .diff-btn:hover .diff-name { color: var(--cream); }
+  .diff-note {
+    font-size: 13.5px;
+    line-height: 1.4;
+    color: rgba(247, 242, 232, 0.78);
+  }
+
+  .over-actions {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--cream);
+    border: 1px solid rgba(212, 160, 23, 0.6);
+    box-shadow: none;
+  }
+  .btn-ghost:hover { background: rgba(212, 160, 23, 0.12); }
+  .btn-ghost:active { transform: translateY(2px); box-shadow: none; }
+
   .final-score {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 700;
@@ -345,7 +448,9 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .swatch.hit, .swatch.missed, .word-btn.correct, .word-btn.wrong { animation-duration: 0.01ms; }
+    .swatch.hit, .swatch.missed, .word-btn.correct, .word-btn.wrong,
+    .tier-banner.show { animation-duration: 0.01ms; }
+    .tier-banner.show { opacity: 1; }
   }
 </style>
 </head>
@@ -364,8 +469,8 @@
         <div class="stat-value" id="score-value">0</div>
       </div>
       <div class="stat">
-        <div class="stat-label">Level</div>
-        <div class="stat-value" id="level-value">1</div>
+        <div class="stat-label">Colours</div>
+        <div class="stat-value" id="level-value">3</div>
       </div>
       <div class="stat">
         <div class="stat-label">Lives</div>
@@ -376,6 +481,7 @@
 
   <div class="field-wrap">
     <div id="field"></div>
+    <div id="tier-banner" class="tier-banner"></div>
   </div>
 
   <div class="wordbank" id="wordbank"></div>
@@ -387,9 +493,22 @@
       <p class="lede">
         Colour swatches drift down from the sky. Tap the button with the matching
         <b>Lik̓wala colour name</b> before a swatch reaches the bottom line.
-        Miss one and you lose a life. The longer you last, the faster they fall.
+        A swatch reaching the bottom costs a life. Choose where to begin.
       </p>
-      <button class="btn" id="start-btn">Start game</button>
+      <div class="difficulty">
+        <button class="diff-btn" data-diff="easy">
+          <span class="diff-name">Easy</span>
+          <span class="diff-note">3 colours, one at a time. Master each set to unlock 3 more.</span>
+        </button>
+        <button class="diff-btn" data-diff="medium">
+          <span class="diff-name">Medium</span>
+          <span class="diff-note">6 colours, two at a time. Master each set to unlock 5 more.</span>
+        </button>
+        <button class="diff-btn" data-diff="hard">
+          <span class="diff-name">Difficult</span>
+          <span class="diff-note">All 15 colours, three at a time. The faster you score, the faster they fall.</span>
+        </button>
+      </div>
       <p class="attribution">
         Lik̓wala colour names and spellings to be confirmed with community language keepers
         before publishing.
@@ -403,7 +522,10 @@
       <div class="big-title">Game <span class="accent">over</span></div>
       <div class="final-score" id="final-score">0</div>
       <p class="lede" id="over-msg">You kept the colours in the sky for a good while.</p>
-      <button class="btn" id="again-btn">Play again</button>
+      <div class="over-actions">
+        <button class="btn" id="again-btn">Play again</button>
+        <button class="btn btn-ghost" id="change-btn">Change difficulty</button>
+      </div>
     </div>
   </div>
 
@@ -452,34 +574,69 @@ let lastTime = 0;
 
 const SWATCH_W = window.innerWidth < 620 ? 60 : 78;
 const SWATCH_H = window.innerWidth < 620 ? 72 : 92;
-const MAX_ACTIVE = 3;
 const START_LIVES = 3;
 
-function newState() {
+/* difficulty tuning */
+const DIFFICULTY = {
+  easy:   { startCount: 3,  addCount: 3, maxActive: 1, baseSpeed: 34, spawnGap: 1700, ramp: false },
+  medium: { startCount: 6,  addCount: 5, maxActive: 2, baseSpeed: 44, spawnGap: 1350, ramp: false },
+  hard:   { startCount: 15, addCount: 0, maxActive: 3, baseSpeed: 52, spawnGap: 1100, ramp: true  },
+};
+
+function shuffled(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function newState(diffKey) {
+  const cfg = DIFFICULTY[diffKey];
+  // a fixed shuffled order; we reveal colours from the front of this list
+  const order = shuffled(COLOURS);
+  const poolSize = Math.min(cfg.startCount, order.length);
   return {
+    diff: diffKey,
+    cfg,
+    order,                 // full shuffled colour list
+    poolSize,              // how many colours are currently revealed
     score: 0,
-    level: 1,
     lives: START_LIVES,
-    active: [],          // {el, colour, x, y, speed}
-    baseSpeed: 42,       // px / second
-    spawnGap: 1500,      // ms between spawns
+    active: [],            // {el, colour, x, y, speed, clean}
+    baseSpeed: cfg.baseSpeed,
+    spawnGap: cfg.spawnGap,
+    maxActive: cfg.maxActive,
     lastSpawn: 0,
-    cleared: 0,          // swatches successfully shot (for levelling)
+    mastered: new Set(),   // files mastered (clean first-try) in current pool
     running: false,
   };
 }
 
-/* ---------- build word buttons ---------- */
+function currentPool() {
+  return state.order.slice(0, state.poolSize);
+}
+
+/* ---------- build word buttons (only current pool) ---------- */
 function buildWordbank() {
   wordbank.innerHTML = "";
-  COLOURS.forEach(c => {
+  if (!state) return;
+  currentPool().forEach(c => {
     const b = document.createElement('button');
     b.className = 'word-btn';
+    if (state.mastered.has(c.file)) b.classList.add('mastered');
     b.type = 'button';
+    b.dataset.file = c.file;
     b.textContent = c.word;
     b.addEventListener('click', () => handleGuess(c.file, b));
     wordbank.appendChild(b);
   });
+}
+
+function markMasteredButton(file) {
+  const b = wordbank.querySelector(`.word-btn[data-file="${CSS.escape(file)}"]`);
+  if (b) b.classList.add('mastered');
 }
 
 /* ---------- lives display ---------- */
@@ -498,13 +655,20 @@ function activeFiles() {
   return state.active.map(a => a.colour.file);
 }
 
-function spawnSwatch() {
-  if (state.active.length >= MAX_ACTIVE) return;
-  // pick a colour not already on screen (active swatches always distinct)
+function pickNextColour() {
   const taken = new Set(activeFiles());
-  const pool = COLOURS.filter(c => !taken.has(c.file));
-  if (pool.length === 0) return;
-  const colour = pool[Math.floor(Math.random() * pool.length)];
+  const pool = currentPool().filter(c => !taken.has(c.file));
+  if (pool.length === 0) return null;
+  // prioritise colours not yet mastered so the player can progress
+  const unmastered = pool.filter(c => !state.mastered.has(c.file));
+  const choices = unmastered.length ? unmastered : pool;
+  return choices[Math.floor(Math.random() * choices.length)];
+}
+
+function spawnSwatch() {
+  if (state.active.length >= state.maxActive) return;
+  const colour = pickNextColour();
+  if (!colour) return;
 
   const el = document.createElement('div');
   el.className = 'swatch';
@@ -520,7 +684,8 @@ function spawnSwatch() {
   el.style.transform = `translate(${x}px, ${y}px)`;
   field.appendChild(el);
 
-  state.active.push({ el, colour, x, y, speed: state.baseSpeed * (0.85 + Math.random() * 0.4) });
+  // clean = no wrong guess has been made against this swatch yet
+  state.active.push({ el, colour, x, y, speed: state.baseSpeed * (0.9 + Math.random() * 0.25), clean: true });
 }
 
 /* ---------- guessing ---------- */
@@ -535,12 +700,20 @@ function handleGuess(file, btn) {
   }
   if (target) {
     shootDown(target, btn);
-  } else {
-    // wrong: no swatch of that colour on screen
-    btn.classList.remove('wrong'); void btn.offsetWidth;
-    btn.classList.add('wrong');
-    setTimeout(() => btn.classList.remove('wrong'), 400);
+    return;
   }
+  // wrong guess: spoil the clean status of the lowest unhit swatch on screen
+  // (the one the player was presumably aiming at), then flash the button.
+  let aimed = null;
+  for (const a of state.active) {
+    if (!a.el.classList.contains('hit')) {
+      if (!aimed || a.y > aimed.y) aimed = a;
+    }
+  }
+  if (aimed) aimed.clean = false;
+  btn.classList.remove('wrong'); void btn.offsetWidth;
+  btn.classList.add('wrong');
+  setTimeout(() => btn.classList.remove('wrong'), 400);
 }
 
 function shootDown(item, btn) {
@@ -556,25 +729,46 @@ function shootDown(item, btn) {
   const TRAVEL = 160; // ms for beam to reach target
 
   fireLaser(tx, ty, TRAVEL);
-
-  // impact: pop the swatch + spark burst once the beam lands
   setTimeout(() => {
     item.el.classList.add('hit');
     burst(tx, ty, item.colour.dot);
     setTimeout(() => item.el.remove(), 340);
   }, TRAVEL);
 
-  state.score += 10 * state.level;
-  state.cleared += 1;
+  // scoring: clean first-try hits are worth more
+  state.score += item.clean ? 15 : 8;
   scoreEl.textContent = state.score;
 
-  // level up every 8 cleared
-  if (state.cleared % 8 === 0) {
-    state.level += 1;
-    levelEl.textContent = state.level;
-    state.baseSpeed *= 1.18;
-    state.spawnGap = Math.max(650, state.spawnGap * 0.88);
+  // mastery: clean (no wrong guess this appearance) hit masters the colour
+  if (item.clean && !state.mastered.has(item.colour.file)) {
+    state.mastered.add(item.colour.file);
+    markMasteredButton(item.colour.file);
+    checkTierComplete();
   }
+
+  // hard mode: speed ramps with every correct hit
+  if (state.cfg.ramp) {
+    state.baseSpeed = Math.min(state.baseSpeed * 1.06, 170);
+    state.spawnGap = Math.max(state.spawnGap * 0.97, 600);
+  }
+}
+
+/* ---------- tier progression (easy / medium) ---------- */
+function checkTierComplete() {
+  const pool = currentPool();
+  const allMastered = pool.every(c => state.mastered.has(c.file));
+  if (!allMastered) return;
+  if (state.poolSize >= state.order.length) {
+    // every colour mastered: the player has won
+    setTimeout(winGame, 500);
+    return;
+  }
+  // expand the pool
+  const add = state.cfg.addCount;
+  state.poolSize = Math.min(state.poolSize + add, state.order.length);
+  levelEl.textContent = state.poolSize;
+  buildWordbank();
+  announceTier();
 }
 
 function fireLaser(tx, ty, travel) {
@@ -648,7 +842,7 @@ function loop(t) {
   lastTime = t;
 
   // spawn
-  if (t - state.lastSpawn > state.spawnGap && state.active.length < MAX_ACTIVE) {
+  if (t - state.lastSpawn > state.spawnGap && state.active.length < state.maxActive) {
     spawnSwatch();
     state.lastSpawn = t;
   }
@@ -663,15 +857,41 @@ function loop(t) {
   rafId = requestAnimationFrame(loop);
 }
 
+/* ---------- tier / win announcements ---------- */
+const tierBanner = document.getElementById('tier-banner');
+function announceTier() {
+  tierBanner.innerHTML = `Set unlocked<span class="sub">${state.poolSize} of ${state.order.length} colours now in play</span>`;
+  tierBanner.classList.remove('show'); void tierBanner.offsetWidth;
+  tierBanner.classList.add('show');
+}
+
+function winGame() {
+  state.running = false;
+  cancelAnimationFrame(rafId);
+  finalScoreEl.textContent = state.score;
+  document.querySelector('#over-overlay .big-title').innerHTML =
+    'You did <span class="accent">it!</span>';
+  overMsg.textContent = "Every colour mastered. You are a true colour keeper!";
+  overOverlay.classList.remove('hidden');
+}
+
 /* ---------- start / end ---------- */
-function startGame() {
+let pendingDiff = 'easy';
+
+function startGame(diffKey) {
+  pendingDiff = diffKey || pendingDiff;
   cancelAnimationFrame(rafId);
   field.querySelectorAll('.swatch, .spark, .laser').forEach(n => n.remove());
-  state = newState();
+  tierBanner.classList.remove('show');
+  state = newState(pendingDiff);
   state.running = true;
   scoreEl.textContent = '0';
-  levelEl.textContent = '1';
+  levelEl.textContent = state.poolSize;
   renderLives();
+  buildWordbank();
+  // reset the game-over title in case a previous round was a win
+  document.querySelector('#over-overlay .big-title').innerHTML =
+    'Game <span class="accent">over</span>';
   startOverlay.classList.add('hidden');
   overOverlay.classList.add('hidden');
   lastTime = 0;
@@ -683,19 +903,32 @@ function endGame() {
   state.running = false;
   cancelAnimationFrame(rafId);
   finalScoreEl.textContent = state.score;
+  const mastered = state.mastered.size;
   let msg;
-  if (state.score >= 300) msg = "Outstanding! You are a true colour keeper.";
-  else if (state.score >= 150) msg = "Strong defending. The colours stayed in the sky.";
-  else if (state.score >= 60) msg = "Good effort. Keep practising the names!";
+  if (mastered >= state.order.length) msg = "Outstanding! You are a true colour keeper.";
+  else if (mastered >= Math.ceil(state.order.length * 0.6)) msg = "Strong work. Most of the colours are yours.";
+  else if (mastered >= 3) msg = `You mastered ${mastered} colours. Keep practising the names!`;
   else msg = "Every round teaches the colours a little better.";
   overMsg.textContent = msg;
   overOverlay.classList.remove('hidden');
 }
 
+function backToSplash() {
+  state = null;
+  cancelAnimationFrame(rafId);
+  field.querySelectorAll('.swatch, .spark, .laser').forEach(n => n.remove());
+  wordbank.innerHTML = "";
+  overOverlay.classList.add('hidden');
+  startOverlay.classList.remove('hidden');
+}
+
 /* ---------- wire up ---------- */
-document.getElementById('start-btn').addEventListener('click', startGame);
-document.getElementById('again-btn').addEventListener('click', startGame);
-buildWordbank();
+document.querySelectorAll('.diff-btn').forEach(b => {
+  b.addEventListener('click', () => startGame(b.dataset.diff));
+});
+document.getElementById('again-btn').addEventListener('click', () => startGame());
+document.getElementById('change-btn').addEventListener('click', backToSplash);
+
 </script>
 </body>
 </html>
